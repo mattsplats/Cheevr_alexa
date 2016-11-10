@@ -1,0 +1,24 @@
+{
+  "name": "speak-and-spell-alexa",
+  "version": "0.0.1",
+  "description": "Alexa app for speak-and-spell",
+  "main": "index.js",
+  "dependencies": {
+    "alexa-app": "^2.3.4",
+    "tabletop": "^1.4.3"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mattsplats/speak_and_spell_alexa.git"
+  },
+  "author": "\"Matt Davis, Carlos Lopez, Gael Arrambide\"",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mattsplats/speak_and_spell_alexa/issues"
+  },
+  "homepage": "https://github.com/mattsplats/speak_and_spell_alexa#readme"
+}
