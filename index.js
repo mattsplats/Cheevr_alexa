@@ -13,6 +13,10 @@ const Alexa = require('alexa-app'),
 app.launch(function (req, res) {
   const prompt = `What would you like to study?`;
 
+  if (!req.data.session.user.accessToken) {
+    res.linkAccount();
+  }
+
   res.say(prompt).reprompt(prompt).shouldEndSession(false);
 });
 
@@ -25,7 +29,7 @@ app.intent('PickQuiz', { "slots": {"quizName": "QUIZZES"}, "utterances": ["{Quiz
         };
 
   rp(options).then(quiz => {
-    const prompt = quiz.quiz[0].q;
+    const prompt = `${quiz.quiz[0].q}.`;
     quiz.currentQ = 0;
     quiz.results = [];
 
@@ -38,42 +42,50 @@ app.intent('PickQuiz', { "slots": {"quizName": "QUIZZES"}, "utterances": ["{Quiz
 
 // Make a guess
 app.intent('MakeGuess', { "slots": {"guess": "GUESS"}, "utterances": ["{-|guess}"] }, function (req, res) {
-  const quiz     = req.session('quiz'),
-        answer   = quiz.quiz[quiz.currentQ].a,
-        guess    = req.slot('guess');
-  let   prompt   = '';
+  const quiz   = req.session('quiz'),
+        answer = quiz.quiz[quiz.currentQ].a,
+        guess  = req.slot('guess');
+  let   prompt = '';
 
-  if (answer.toLowerCase() === guess.toLowerCase()) {
-    prompt = `Correct!`;
+  function convertGuess (guess) {
+    switch (quiz.type) {
+      case 'trueFalse':      return guess === 'true' ? true : false;
+      case 'multipleChoice': return guess[0].toLowerCase();
+    }
+  }
+
+  if (answer === convertGuess(guess)) {
+    prompt = `Correct! `;
     quiz.results.push(true);
 
   } else {
-    prompt = `Sorry, the answer was: ${quiz.quiz[quiz.currentQ].a}.`;
+    prompt = `Sorry, the answer was: ${quiz.quiz[quiz.currentQ].a}. `;
     quiz.results.push(false);
   }
 
   quiz.currentQ++;
-  console.log(guess, answer, quiz.results);
 
   if (quiz.currentQ === quiz.quiz.length) {
-    const options = {
-      method: 'PUT',
+    const accuracy = Math.round(quiz.results.reduce((a,b) => b ? a + 1 : a, 0) * 100 / quiz.quiz.length),
+          options  = {
+      method: 'POST',
       uri: 'https://alexaquiz.herokuapp.com/alexa',
       body: {
+        name: quiz.name,
         results: quiz.results
       },
       json: true
     };
 
     rp(options).then(data => {
-      prompt += ` Thanks for using quiz me!`;
+      prompt += `Your accuracy for this quiz was: ${accuracy} percent.`;
       res.say(prompt).send();
     });
 
     return false;  // Required for async calls to res.say
 
   } else {
-    prompt += ` ${quiz.quiz[quiz.currentQ].q}`;
+    prompt += `${quiz.quiz[quiz.currentQ].q}.`;
     res.session('quiz', quiz);
     res.say(prompt).reprompt(prompt).shouldEndSession(false);
   }
