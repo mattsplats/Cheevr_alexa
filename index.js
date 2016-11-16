@@ -13,7 +13,7 @@ const Alexa = require('alexa-app'),
       SSML_BREAK  = `<break time='75ms'/> `,
       LOGIN_FIRST = 'Please check your Alexa app and login with your Amazon account to continue.',
       NO_QUIZ     = `You haven't picked a quiz yet. `,
-      NEW_QUIZ    = 'Say: quiz me on, and the name of the quiz, to start a new quiz.',  // You can also say, list quizzes, to hear some popular quizzes.
+      NEW_QUIZ    = 'Say: quiz, and the name of the quiz, to start a new quiz.',  // You can also say, list quizzes, to hear some popular quizzes.
       CANCEL      = 'OK. Your results were not recorded.';
 
 
@@ -24,12 +24,22 @@ app.launch(function (req, res) {
   //   res.linkAccount().res.say('Please check your Alexa app and login with your Amazon account to continue.');
   
   // } else {
+  
+  // If a quiz is in progress
+  if (req.session('quiz')) {
+    const quiz   = req.session('quiz'),
+          prompt = `The ${quiz.type === 'trueFalse' ? 'true false statement' : 'question'} is: ${quiz.questions[quiz.currentQ].q}`;
+
+    res.say('There is already a quiz in progress. ' + prompt).reprompt(prompt).shouldEndSession(false);
+
+  // If no quiz has been chosen
+  } else {
     res.say(NEW_QUIZ).reprompt(NEW_QUIZ).shouldEndSession(false);
-  // }  
+  }
 });
 
 // Choose quiz
-app.intent('PickQuiz', { "slots": {"quizName": "QUIZZES"}, "utterances": ["quiz {me|me on |} {-|quizName}"] }, function (req, res) {
+app.intent('PickQuiz', { "slots": {"quizName": "QUIZZES"}, "utterances": ["quiz {me on |} {-|quizName}"] }, function (req, res) {
   // if (!req.data.session.user.accessToken) {
   //   res.linkAccount().res.say('Please check your Alexa app and login with your Amazon account to continue.');
   
@@ -63,7 +73,10 @@ app.intent('PickQuiz', { "slots": {"quizName": "QUIZZES"}, "utterances": ["quiz 
             break;
           case 'multipleChoice':
             prompt += `multiple choice quiz. Please respond with, alpha, bravo, charlie, or delta, to each question. `;
-            quiz.questions.map(question => question.q += ` Is it, A: ${question.choiceA}, B: ${question.choiceB}, C: ${question.choiceC}, or D: ${question.choiceD}?`);
+            for (let i = 0; i < quiz.questions.length; i++) {
+              quiz.questions[i].q += ` Is it, A: ${quiz.questions[i].choiceA}, B: ${quiz.questions[i].choiceB}, C: ${quiz.questions[i].choiceC}, or D: ${quiz.questions[i].choiceD}?`;
+            }
+            // quiz.questions.forEach(question => question.q += ` Is it, A: ${question.choiceA}, B: ${question.choiceB}, C: ${question.choiceC}, or D: ${question.choiceD}?`);
             break;
         };
 
@@ -76,7 +89,7 @@ app.intent('PickQuiz', { "slots": {"quizName": "QUIZZES"}, "utterances": ["quiz 
       
       // If no quiz named quizName was found
       } else {
-        res.say('Sorry, no quiz named, ${quizName}, was found. Please try again.').reprompt(NEW_QUIZ).shouldEndSession(false).send();
+        res.say(`Sorry, no quiz named, ${quizName}, was found. Please try again.`).reprompt(NEW_QUIZ).shouldEndSession(false).send();
       }
     }).catch(() => {
       res.say('Sorry, there was a problem connecting to the server. Please try again later.').send();
@@ -87,7 +100,7 @@ app.intent('PickQuiz', { "slots": {"quizName": "QUIZZES"}, "utterances": ["quiz 
 });
 
 // Make a guess
-app.intent('MakeGuess', { "slots": {"guess": "GUESS"}, "utterances": ["{guess|I'll guess|I'm guessing|is it |} {-|guess}"] }, function (req, res) {
+app.intent('MakeGuess', { "slots": {"guess": "GUESS"}, "utterances": ["{-|guess}"] }, function (req, res) {
 
   // If a quiz is in progress
   if (req.session('quiz')) {
@@ -146,7 +159,7 @@ app.intent('MakeGuess', { "slots": {"guess": "GUESS"}, "utterances": ["{guess|I'
 });
 
 // Repeat the question
-app.intent('RepeatQuestion', { "utterances": ["{please|could you |} repeat {question|the question|the last question|that |}"] }, function (req, res) {
+app.intent('RepeatQuestion', { "utterances": ["repeat {the question |}"] }, function (req, res) {
 
   // If a quiz is in progress
   if (req.session('quiz')) {
