@@ -27,7 +27,7 @@ app.launch(function (req, res) {
   } else {
   
     // If a quiz is in progress
-    if (req.session('quiz')) {
+    if (req.data.session.hasOwnProperty('quiz')) {
       const quiz   = req.session('quiz'),
             prompt = `The ${quiz.type === 'trueFalse' ? 'true false statement' : 'question'} is: ${quiz.questions[quiz.currentQ].q}`;
 
@@ -48,11 +48,11 @@ app.intent('PickQuiz', { "slots": {"quizName": "QUIZZES"}, "utterances": ["quiz 
     res.linkAccount().say(LOGIN_FIRST);
   
   } else {
+    const quiz = req.session('quiz');
 
     // If a quiz is in progress
-    if (req.session('quiz')) {
-      const quiz   = req.session('quiz'),
-            prompt = `The ${quiz.type === 'trueFalse' ? 'true false statement' : 'question'} is: ${quiz.questions[quiz.currentQ].q}`;
+    if (quiz) {
+      const prompt = `The ${quiz.type === 'trueFalse' ? 'true false statement' : 'question'} is: ${quiz.questions[quiz.currentQ].q}`;
 
       res.say('There is already a quiz in progress. ' + prompt).reprompt(prompt).shouldEndSession(false);
 
@@ -68,7 +68,6 @@ app.intent('PickQuiz', { "slots": {"quizName": "QUIZZES"}, "utterances": ["quiz 
         
         // If a quiz named quizName was found
         if (quiz.name) {
-          const q = quiz.questions[0].q;
           let prompt = 'This is a ';
 
           switch (quiz.type) {
@@ -77,10 +76,7 @@ app.intent('PickQuiz', { "slots": {"quizName": "QUIZZES"}, "utterances": ["quiz 
               break;
             case 'multipleChoice':
               prompt += `multiple choice quiz. Please respond with, alpha, bravo, charlie, or delta, to each question. `;
-              for (let i = 0; i < quiz.questions.length; i++) {
-                quiz.questions[i].q += ` Is it, A: ${quiz.questions[i].choiceA}, B: ${quiz.questions[i].choiceB}, C: ${quiz.questions[i].choiceC}, or D: ${quiz.questions[i].choiceD}?`;
-              }
-              // quiz.questions.forEach(question => question.q += ` Is it, A: ${question.choiceA}, B: ${question.choiceB}, C: ${question.choiceC}, or D: ${question.choiceD}?`);
+              quiz.questions.forEach(question => question.q += ` Is it, A: ${question.choiceA}, B: ${question.choiceB}, C: ${question.choiceC}, or D: ${question.choiceD}?`);
               break;
           };
 
@@ -89,7 +85,7 @@ app.intent('PickQuiz', { "slots": {"quizName": "QUIZZES"}, "utterances": ["quiz 
           quiz.results = [];
 
           res.session('quiz', quiz);
-          res.say(prompt + SSML_BREAK + q).reprompt(q).shouldEndSession(false).send();
+          res.say(prompt + SSML_BREAK + quiz.questions[0].q).reprompt(quiz.questions[0].q).shouldEndSession(false).send();
         
         // If no quiz named quizName was found
         } else {
