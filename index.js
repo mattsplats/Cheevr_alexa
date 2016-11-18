@@ -60,14 +60,14 @@ app.intent('PickQuiz', { "slots": {"quizName": "QUIZZES"}, "utterances": ["quiz 
     } else {
       const quizName = req.slot('quizName').toLowerCase(),
             options  = {
-              uri: `https://alexaquiz.herokuapp.com/alexa/${quizName}`,
+              uri: `https://alexaquiz.herokuapp.com/alexa/${quizName}.${req.data.session.user.accessToken}`,
               json: true
             };
 
       rp(options).then(quiz => {
         
         // If a quiz named quizName was found
-        if (quiz.name) {
+        if (quiz) {
           let prompt = 'This is a ';
 
           switch (quiz.type) {
