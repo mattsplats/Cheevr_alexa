@@ -13,7 +13,7 @@ const Alexa = require('alexa-app'),
       SSML_BREAK  = `<break time='75ms'/> `,
       LOGIN_FIRST = 'Please check your Alexa app and login with your Amazon account to continue. ',
       NO_QUIZ     = `You haven't picked a quiz yet. `,
-      NEW_QUIZ    = 'Say: quiz, and the name of the quiz, to start a new quiz. ',  // You can also say, list quizzes, to hear some popular quizzes.
+      NEW_QUIZ    = 'Say: quiz me on, and the name of the quiz, to start a new quiz. ',  // You can also say, list quizzes, to hear some popular quizzes.
       CANCEL      = 'OK. Your results were not recorded. ';
 
 
@@ -41,14 +41,15 @@ app.launch(function (req, res) {
 });
 
 // Choose quiz
-app.intent('PickQuiz', { "slots": {"quizName": "QUIZZES"}, "utterances": ["quiz {me on |} {-|quizName}"] }, function (req, res) {
-  
+app.intent('PickQuiz', { "slots": {"quizName": "QUIZZES"}, "utterances": ["quiz me on {-|quizName}"] }, function (req, res) {
+  console.log(req.data.session);
+
   // Require login
   if (!req.data.session.user.accessToken) {
     res.linkAccount().say(LOGIN_FIRST);
   
   } else {
-    const quiz = req.session('quiz');
+    const quiz = req.data.session.attributes ? req.session('quiz') : false;
 
     // If a quiz is in progress
     if (quiz) {
@@ -60,15 +61,17 @@ app.intent('PickQuiz', { "slots": {"quizName": "QUIZZES"}, "utterances": ["quiz 
     } else {
       const quizName = req.slot('quizName').toLowerCase(),
             options  = {
-              uri: `https://alexaquiz.herokuapp.com/alexa/${quizName}.${req.data.session.user.accessToken}`,
+              uri: `https://alexaquiz.herokuapp.com/alexa/${quizName}.${req.data.session.user.accessToken || 'false'}`,
               json: true
             };
+
+      console.log(quizName);
 
       rp(options).then(quiz => {
         
         // If a quiz named quizName was found
-        if (quiz) {
-          let prompt = 'This is a ';
+        if (quiz && quiz.name) {
+          let prompt = `${quizName}, is a `;
 
           switch (quiz.type) {
             case 'trueFalse':
@@ -102,15 +105,16 @@ app.intent('PickQuiz', { "slots": {"quizName": "QUIZZES"}, "utterances": ["quiz 
 
 // Make a guess
 app.intent('MakeGuess', { "slots": {"guess": "GUESS"}, "utterances": ["{-|guess}"] }, function (req, res) {
-  
+  console.log(req.data.session);
+
   // Require login
   if (!req.data.session.user.accessToken) {
     res.linkAccount().say(LOGIN_FIRST);
   
   } else {
-
+    
     // If a quiz is in progress
-    if (req.session('quiz')) {
+    if (req.data.session.attributes) {
       const quiz   = req.session('quiz'),
             answer = quiz.questions[quiz.currentQ].a,
             guess  = quiz.type === 'multipleChoice' ? req.slot('guess')[0].toLowerCase() : req.slot('guess');
@@ -121,7 +125,17 @@ app.intent('MakeGuess', { "slots": {"guess": "GUESS"}, "utterances": ["{-|guess}
         quiz.results.push(true);
 
       } else {
-        prompt = `Sorry, the answer was: ${quiz.questions[quiz.currentQ].a}. `;
+        let correctAns = '';
+        if (quiz.type === 'multipleChoice') {
+          switch (quiz.questions[quiz.currentQ].a) {
+            case 'a': correctAns = ': ' + quiz.questions[quiz.currentQ].choiceA; break;
+            case 'b': correctAns = ': ' + quiz.questions[quiz.currentQ].choiceB; break;
+            case 'c': correctAns = ': ' + quiz.questions[quiz.currentQ].choiceC; break;
+            default: correctAns = ': ' + quiz.questions[quiz.currentQ].choiceD; break;
+          }
+        }
+
+        prompt = `Sorry, the answer was: ${quiz.questions[quiz.currentQ].a}${correctAns}. `;
         quiz.results.push(false);
       }
 
@@ -168,7 +182,7 @@ app.intent('MakeGuess', { "slots": {"guess": "GUESS"}, "utterances": ["{-|guess}
 });
 
 // Repeat the question
-app.intent('RepeatQuestion', { "utterances": ["repeat {the question |}"] }, function (req, res) {
+app.intent('RepeatQuestion', { "utterances": ["{could you |} repeat the question"] }, function (req, res) {
 
   // Require login
   if (!req.data.session.user.accessToken) {
@@ -199,7 +213,7 @@ app.intent('AMAZON.HelpIntent', {}, function (req, res) {
   } else {
     res.say(`
       ${!req.session('quiz') ? NEW_QUIZ :
-        `To make a guess, just say it. If you wish, you may say, is it, before the guess.
+        `To make a guess, just say the guess.
         Say: repeat the question, to repeat the last question.
         Say: stop, or cancel, to end the quiz. No results will be recorded.`}
       Please visit the website to create your own quizzes, or find new quizzes to try.
